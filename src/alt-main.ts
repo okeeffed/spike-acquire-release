@@ -1,63 +1,54 @@
 import { acquireRelease } from "./alt-acq";
 import { ErrorType, Failure, Result } from "./alt-result";
 
-export class RecordCreateError<E extends ErrorType> {
-  readonly _tag = "RecordCreateError";
+export abstract class RollbackableError<E extends ErrorType> {
+  readonly _tag: string;
   readonly reason: Failure<E>;
-  rollbackFns: Array<() => Promise<Result<unknown, E>>>;
+  private rollbackFns: Array<() => Promise<Result<unknown, E>>>;
 
   constructor(
+    tag: string,
     reason: Failure<E>,
     rollbackFns: Array<() => Promise<Result<unknown, E>>> = []
   ) {
+    this._tag = tag;
     this.reason = reason;
     this.rollbackFns = rollbackFns;
   }
 
-  rollback() {
+  async rollback() {
     for (const rollbackFn of this.rollbackFns) {
-      rollbackFn();
+      await rollbackFn();
     }
   }
 }
 
-export class S3Error<E extends ErrorType> {
-  readonly _tag = "S3Error";
-  readonly reason: Failure<E>;
-  rollbackFns: Array<() => Promise<Result<unknown, E>>>;
-
+export class RecordCreateError<
+  E extends ErrorType
+> extends RollbackableError<E> {
   constructor(
     reason: Failure<E>,
     rollbackFns: Array<() => Promise<Result<unknown, E>>> = []
   ) {
-    this.reason = reason;
-    this.rollbackFns = rollbackFns;
-  }
-
-  rollback() {
-    for (const rollbackFn of this.rollbackFns) {
-      rollbackFn();
-    }
+    super("RecordCreateError", reason, rollbackFns);
   }
 }
 
-export class SQSUploadError<E extends ErrorType> {
-  readonly _tag = "SQSUploadError";
-  readonly reason: Failure<E>;
-  rollbackFns: Array<() => Promise<Result<unknown, E>>>;
-
+export class S3Error<E extends ErrorType> extends RollbackableError<E> {
   constructor(
     reason: Failure<E>,
     rollbackFns: Array<() => Promise<Result<unknown, E>>> = []
   ) {
-    this.reason = reason;
-    this.rollbackFns = rollbackFns;
+    super("S3Error", reason, rollbackFns);
   }
+}
 
-  rollback() {
-    for (const rollbackFn of this.rollbackFns) {
-      rollbackFn();
-    }
+export class SQSUploadError<E extends ErrorType> extends RollbackableError<E> {
+  constructor(
+    reason: Failure<E>,
+    rollbackFns: Array<() => Promise<Result<unknown, E>>> = []
+  ) {
+    super("SQSUploadError", reason, rollbackFns);
   }
 }
 
